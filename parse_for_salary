@@ -1,0 +1,76 @@
+import sqlite3
+import re
+
+# Define SQLite database file path
+db_file = '/Users/snatch./PycharmProjects/pythonProject4data analyst v34/serapi_data_analyst_data.db'
+
+# Function to extract salary from description using regex
+def extract_salary(description):
+    # Regular expression pattern to extract pound sign (£) followed by digits
+    pattern = r'£\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)'
+
+    # Find all matches in description
+    matches = re.findall(pattern, description)
+
+    # Return formatted salary with pound sign
+    if matches:
+        return '£' + matches[0]
+    else:
+        return None
+
+# Function to create 'salary' column if it doesn't exist
+def create_salary_column(conn):
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            ALTER TABLE jobs
+            ADD COLUMN salary TEXT
+        ''')
+        conn.commit()
+        print("Salary column added to 'jobs' table.")
+    except sqlite3.Error as e:
+        print(f"Error creating salary column: {e}")
+
+# Main function to update salary data in SQLite database
+def update_salary_data():
+    # Connect to SQLite database
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+
+    try:
+        # Check if 'salary' column exists, create if not
+        cursor.execute('PRAGMA table_info(jobs)')
+        columns = cursor.fetchall()
+        columns = [col[1] for col in columns]  # Extract column names
+        if 'salary' not in columns:
+            create_salary_column(conn)
+
+        # Retrieve job entries from database
+        cursor.execute("SELECT id, description FROM jobs WHERE salary IS NULL")  # Select entries without salary
+
+        # Fetch all rows
+        rows = cursor.fetchall()
+
+        # Iterate over rows and update salary data
+        for row in rows:
+            job_id = row[0]
+            description = row[1]
+
+            # Extract salary from description
+            salary = extract_salary(description)
+
+            # Update salary in database
+            cursor.execute("UPDATE jobs SET salary = ? WHERE id = ?", (salary, job_id))
+
+        # Commit changes
+        conn.commit()
+        print("Salary data updated successfully.")
+    except sqlite3.Error as e:
+        print(f"Error updating salary data: {e}")
+    finally:
+        # Close database connection
+        conn.close()
+
+# Execute main function if running as a script
+if __name__ == '__main__':
+    update_salary_data()
