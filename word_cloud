@@ -1,0 +1,51 @@
+import sqlite3
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+
+# Define SQLite database file path
+db_file = '/Users/snatch./PycharmProjects/pythonProject4data analyst v34/serapi_data_analyst_data_copy.db'
+
+# Function to fetch skills data from SQLite database
+def fetch_skills_data():
+    try:
+        conn = sqlite3.connect(db_file)
+        cursor = conn.cursor()
+
+        # Fetch skills from the database
+        cursor.execute("SELECT skills FROM jobs")
+        skills_data = cursor.fetchall()
+
+        # Close database connection
+        conn.close()
+
+        return [row[0] for row in skills_data if row[0]]  # Filter out None values
+
+    except sqlite3.Error as e:
+        print(f"SQLite error: {e}")
+
+    return []
+
+# Main function to generate word cloud from skills data
+def generate_word_cloud():
+    # Fetch skills data from SQLite database
+    skills = fetch_skills_data()
+
+    # Join all skills into a single string
+    text = " ".join(skills)
+
+    # Create word cloud configuration
+    wordcloud = WordCloud(width=800, height=400, background_color='white', colormap='viridis',
+                          contour_color='black', contour_width=1, max_words=200, prefer_horizontal=0.7)
+
+    # Generate word cloud
+    wordcloud.generate(text)
+
+    # Plot word cloud using matplotlib
+    plt.figure(figsize=(10, 6))
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis("off")
+    plt.show()
+
+# Execute main function if running as a script
+if __name__ == '__main__':
+    generate_word_cloud()
