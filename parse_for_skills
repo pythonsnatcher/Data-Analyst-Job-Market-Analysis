@@ -1,0 +1,92 @@
+import sqlite3
+import re
+
+# Define SQLite database file path
+db_file = '/Users/snatch./PycharmProjects/pythonProject4data analyst v34/serapi_data_analyst_data.db'
+
+
+# Function to extract coding skills using regex
+def extract_skills(description):
+    # List of common programming languages and skills
+    programming_languages = [
+        'Python', 'Java', 'JavaScript', 'SQL', 'C#', 'C++', 'Ruby', 'PHP',
+        'Swift', 'Objective-C', 'TypeScript', 'Kotlin', 'Go', 'Rust', 'Scala',
+        'Perl', 'HTML', 'CSS', 'R', 'MATLAB'
+    ]
+    skills = []
+
+    # Regex pattern to find skills in description
+    pattern = r'\b(?:' + '|'.join(programming_languages) + r')\b'
+    matches = re.findall(pattern, description, flags=re.IGNORECASE)
+
+    # Convert all matches to uppercase and remove parentheses
+    skills = [match.upper().strip('()') for match in matches]
+
+    # Deduplicate skills
+    skills = list(set(skills))
+
+    # Return skills as comma-separated string
+    return ', '.join(skills)
+
+
+# Function to create 'skills' column if it doesn't exist
+def create_skills_column(conn):
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            ALTER TABLE jobs
+            ADD COLUMN skills TEXT
+        ''')
+        conn.commit()
+        print("Skills column added to 'jobs' table.")
+    except sqlite3.Error as e:
+        print(f"Error creating skills column: {e}")
+
+
+# Main function to parse skills from existing job descriptions in SQLite database
+def parse_skills_from_db():
+    # Connect to SQLite database
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+
+    try:
+        # Check if 'skills' column exists, create if not
+        cursor.execute('PRAGMA table_info(jobs)')
+        columns = cursor.fetchall()
+        columns = [col[1] for col in columns]  # Extract column names
+        if 'skills' not in columns:
+            create_skills_column(conn)
+
+        # Query job descriptions from the database
+        cursor.execute('SELECT id, description FROM jobs')
+        rows = cursor.fetchall()
+
+        # Iterate over each job description
+        for row in rows:
+            job_id, description = row
+
+            # Extract skills from description using regex
+            skills = extract_skills(description)
+
+            # Update database with extracted skills
+            cursor.execute('''
+                UPDATE jobs
+                SET skills = ?
+                WHERE id = ?
+            ''', (skills, job_id))
+
+        # Commit changes to the database
+        conn.commit()
+        print("Skills extracted and updated successfully.")
+
+    except sqlite3.Error as e:
+        print(f"Error extracting or updating skills: {e}")
+
+    finally:
+        # Close database connection
+        conn.close()
+
+
+# Execute the function to parse skills from existing job descriptions
+if __name__ == '__main__':
+    parse_skills_from_db()
