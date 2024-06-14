@@ -1,0 +1,102 @@
+import sqlite3
+from serpapi import GoogleSearch
+from secrets import google_api_key
+
+# Define SQLite database file path
+db_file = '/Users/snatch./PycharmProjects/pythonProject4data analyst v34/serapi_data_analyst_data.db'
+
+# Function to create table (if not exists)
+def create_table(conn):
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                company_name TEXT,
+                location TEXT,
+                via TEXT,
+                description TEXT
+            )
+        ''')
+        conn.commit()
+        print("Table 'jobs' created successfully.")
+    except sqlite3.Error as e:
+        print(f"Error creating table: {e}")
+
+# Function to insert job data into the database
+def insert_jobs(conn, jobs_results):
+    try:
+        cursor = conn.cursor()
+        for job in jobs_results:
+            title = job.get('title', '')
+            company_name = job.get('company_name', '')
+            location = job.get('location', '')
+            via = job.get('via', '')
+            description = job.get('description', '')
+
+            cursor.execute('''
+                INSERT INTO jobs (title, company_name, location, via, description)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (title, company_name, location, via, description))
+        conn.commit()
+        print("Job data inserted successfully.")
+    except sqlite3.Error as e:
+        print(f"Error inserting job data: {e}")
+
+# Main function to perform Google Jobs search and store results in SQLite database
+def main():
+    # Define search parameters
+    search_location = "London"
+    search_term = "Data Analyst"
+    params = {
+        "google_domain": "google.com",
+        "engine": "google_jobs",
+        "q": search_term,
+        "hl": "en",
+        "api_key": google_api_key,
+        "gl": "uk",
+        "device": "desktop",
+        "location": search_location,
+        # "chip": "date_posted:today",  # Filter for jobs posted today
+        "start": 0,                   # Start index for pagination
+        "limit": 5000,                  # Number of results per page (adjust as needed)
+    }
+
+    # Initialize variables
+    max_results = 5000 # Maximum total results desired
+    total_results = 0   # Counter for total results fetched
+    page_size = 5    # Results per page
+
+    # Connect to SQLite database
+    conn = sqlite3.connect(db_file)
+    create_table(conn)  # Create table if not exists
+
+    while total_results < max_results:
+        # Perform the search using GoogleSearch class
+        search = GoogleSearch(params)
+        results = search.get_dict()
+
+        # Extract job results
+        jobs_results = results.get("jobs_results", [])
+
+        # Insert job data into database
+        insert_jobs(conn, jobs_results)
+
+        # Update total_results counter
+        total_results += len(jobs_results)
+
+        # Increment start parameter for next page
+        params["start"] += page_size
+        print(f"Total jobs found so far: {total_results}")
+
+        # Check if we've reached max_results or more results are not available
+        if len(jobs_results) < page_size:
+            break
+
+    # Close database connection
+    conn.close()
+
+# Execute main function if running as a script
+if __name__ == '__main__':
+    main()
