@@ -1,0 +1,50 @@
+import sqlite3
+
+# Define source and destination SQLite database file paths
+src_db_file = '/Users/snatch./PycharmProjects/pythonProject4data analyst v34/serapi_data_analyst_data.db'
+dest_db_file = '/Users/snatch./PycharmProjects/pythonProject4data analyst v34/serapi_data_analyst_data_copy.db'
+
+def copy_table_without_description(src_db_file, dest_db_file):
+    # Connect to source and destination SQLite databases
+    src_conn = sqlite3.connect(src_db_file)
+    dest_conn = sqlite3.connect(dest_db_file)
+    src_cursor = src_conn.cursor()
+    dest_cursor = dest_conn.cursor()
+
+    try:
+        # Create the new table in the destination database without the 'description' column
+        dest_cursor.execute('''
+            CREATE TABLE IF NOT EXISTS jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                company_name TEXT,
+                location TEXT,
+                via TEXT,
+                salary TEXT,
+                skills TEXT
+            )
+        ''')
+
+        # Copy data from the old table to the new table, excluding the 'description' column
+        src_cursor.execute('SELECT id, title, company_name, location, via, salary, skills FROM jobs')
+        rows = src_cursor.fetchall()
+        dest_cursor.executemany('''
+            INSERT INTO jobs (id, title, company_name, location, via, salary, skills)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', rows)
+
+        # Commit the changes to the destination database
+        dest_conn.commit()
+        print("Table copied successfully without the 'description' column.")
+
+    except sqlite3.Error as e:
+        print(f"Error copying table: {e}")
+
+    finally:
+        # Close the database connections
+        src_conn.close()
+        dest_conn.close()
+
+# Execute the function
+if __name__ == '__main__':
+    copy_table_without_description(src_db_file, dest_db_file)
